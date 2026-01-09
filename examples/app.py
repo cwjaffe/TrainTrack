@@ -28,8 +28,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-# Enable debug for alerts
-logging.getLogger("src.traintrack.mta_client").setLevel(logging.DEBUG)
 
 # Global tracker instance - initialized on first use
 _TRACKER = None
