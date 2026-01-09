@@ -2,6 +2,7 @@
 """
 Simple text interface for querying MTA real-time train data.
 Uses the traintrack library for arrival calculations and station lookup.
+AI Mostly code generation.
 """
 
 import logging
