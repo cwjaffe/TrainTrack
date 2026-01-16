@@ -316,11 +316,13 @@ def run_gui():
         print("Root created")
         root.title("TrainTrack — Station Sign")
         root.configure(bg="black")
-        root.geometry("900x420")
+        root.geometry("800x480")  # Adjusted for 800x480 display
+        root.attributes('-fullscreen', True)  # Make fullscreen for Pi HDMI display
 
         # Fonts and colors for sign appearance
-        sign_font = tkfont.Font(family="Helvetica", size=28, weight="bold")
-        small_font = tkfont.Font(family="Helvetica", size=12)
+        sign_font = tkfont.Font(family="Helvetica", size=40, weight="bold")  # Bigger sign text
+        small_font = tkfont.Font(family="Helvetica", size=10)  # Smaller font
+        line_font = tkfont.Font(family="Helvetica", size=28, weight="bold")  # Even bigger font for line letters
         amber = "#FFB14E"
         accent = "#FF6B35"
         grey = "#333333"
@@ -328,10 +330,10 @@ def run_gui():
 
         # Top frame: station and time
         top = tk.Frame(root, bg="black")
-        top.pack(fill="x", padx=12, pady=(12, 6))
+        top.pack(fill="x", padx=10, pady=(10, 5))  # Adjusted padding
 
         station_label = tk.Label(top, text="Select a station", fg=text_color, bg="black", font=sign_font)
-        station_label.pack(side="left", padx=(6, 20))
+        station_label.pack(side="left", padx=(5, 15))
 
         # Toggle search visibility
         is_search_visible = True
@@ -341,31 +343,31 @@ def run_gui():
                 left.pack_forget()
                 toggle_btn.config(text="Show Search")
             else:
-                left.pack(side="left", fill="y", padx=(12, 6), pady=6)
+                left.pack(side="left", fill="y", padx=(10, 5), pady=5)
                 toggle_btn.config(text="Hide Search")
             is_search_visible = not is_search_visible
 
         toggle_btn = tk.Label(top, text="Hide Search", bg="black", fg=text_color, font=small_font, cursor="hand2")
-        toggle_btn.pack(side="right", padx=6)
+        toggle_btn.pack(side="right", padx=5)
         toggle_btn.bind("<Button-1>", lambda e: toggle_search())
 
         updated_label = tk.Label(top, text="Updated: --:--:--", fg=text_color, bg="black", font=small_font)
-        updated_label.pack(side="right", padx=6)
+        updated_label.pack(side="right", padx=5)
 
         # Left frame: search & results
-        left = tk.Frame(root, bg=grey, width=280)
-        left.pack(side="left", fill="y", padx=(12, 6), pady=6)
+        left = tk.Frame(root, bg=grey, width=250)  # Adjusted width for smaller screen
+        left.pack(side="left", fill="y", padx=(10, 5), pady=5)
         left.pack_propagate(False)
 
         search_label = tk.Label(left, text="Find station:", fg=text_color, bg=grey, font=small_font)
-        search_label.pack(anchor="nw", padx=8, pady=(8, 0))
+        search_label.pack(anchor="nw", padx=6, pady=(6, 0))
 
         search_var = tk.StringVar()
         search_entry = tk.Entry(left, textvariable=search_var, fg=text_color, bg="black", font=small_font, insertbackground=text_color)
-        search_entry.pack(fill="x", padx=8, pady=6)
+        search_entry.pack(fill="x", padx=6, pady=4)
 
-        results_lb = tk.Listbox(left, fg=text_color, bg="black", font=small_font, activestyle="dotbox", height=18, selectbackground=grey, selectforeground=text_color)
-        results_lb.pack(fill="both", expand=True, padx=8, pady=(0,8))
+        results_lb = tk.Listbox(left, fg=text_color, bg="black", font=small_font, activestyle="dotbox", height=15, selectbackground=grey, selectforeground=text_color)  # Adjusted height
+        results_lb.pack(fill="both", expand=True, padx=6, pady=(0,6))
 
         # Populate with all stations (display names)
         sorted_stations = sorted(all_stations.items(), key=lambda kv: kv[1].lower())
@@ -378,7 +380,7 @@ def run_gui():
             if not q:
                 for stop_id, display in sorted_stations:
                     results_lb.insert("end", display)
-                    return
+                return
             for stop_id, display in sorted_stations:
                 if q in display.lower():
                     results_lb.insert("end", display)
@@ -387,7 +389,7 @@ def run_gui():
 
         # Right frame: big sign with arrivals
         right = tk.Frame(root, bg="black")
-        right.pack(side="right", fill="both", expand=True, padx=(6,12), pady=6)
+        right.pack(side="right", fill="both", expand=True, padx=(5,10), pady=5)
 
         # Canvas-like area for arrivals
         arrivals_canvas = tk.Canvas(right, bg="black", highlightthickness=0)
@@ -399,8 +401,8 @@ def run_gui():
 
         # Alerts bar
         alerts_var = tk.StringVar(value="")
-        alerts_label = tk.Label(root, textvariable=alerts_var, fg=text_color, bg="black", font=small_font, wraplength=860, justify="left")
-        alerts_label.pack(fill="x", padx=12, pady=(2,10))
+        alerts_label = tk.Label(root, textvariable=alerts_var, fg=text_color, bg="black", font=small_font, wraplength=750, justify="left")  # Adjusted wraplength
+        alerts_label.pack(fill="x", padx=10, pady=(2,8))
 
         selected = {"stop_id": None, "display": None}
         refresh_after_ms = 15_000  # refresh every 15s (faster than 30s)
@@ -409,17 +411,24 @@ def run_gui():
             for child in arrivals_frame.winfo_children():
                 child.destroy()
 
-        def format_row(line, mins, dest, is_header=False):
-            bg = "black"
-            if is_header:
-                lbl = tk.Label(arrivals_frame, text=line, font=small_font, fg=text_color, bg=bg, anchor="w")
-                lbl.pack(fill="x", padx=6, pady=(10, 0))
-                return
-            row = tk.Frame(arrivals_frame, bg=bg)
-            row.pack(fill="x", padx=6, pady=2)
-            lbl_line = tk.Label(row, text=f"{line:>3}", width=6, font=sign_font, fg="white", bg=get_line_color(line), anchor="w")
-            lbl_line.pack(side="left")
-            lbl_min = tk.Label(row, text=f"{mins:>3} min", width=10, font=sign_font, fg=text_color, bg=bg, anchor="w")
+        def chunks(lst, n):
+            """Yield successive n-sized chunks from lst."""
+            for i in range(0, len(lst), n):
+                yield lst[i:i + n]
+
+        def format_row(line, mins, parent_frame):
+            row = tk.Frame(parent_frame, bg="black")
+            row.pack(fill="x", pady=5)  # Increased spacing between rows
+            
+            # Circular line indicator using Canvas - even bigger
+            line_canvas = tk.Canvas(row, width=60, height=60, bg="black", highlightthickness=0)
+            line_canvas.pack(side="left", padx=(0,5))
+            # Draw even bigger circle without border
+            line_canvas.create_oval(2, 2, 58, 58, fill=get_line_color(line), outline="")
+            # Add text at center
+            line_canvas.create_text(30, 30, text=line.strip(), font=line_font, fill="white")
+            
+            lbl_min = tk.Label(row, text=f"{mins:>3} min", font=sign_font, fg=text_color, bg="black", anchor="w")
             lbl_min.pack(side="left")
 
         def update_display(stop_id, display_name):
@@ -439,12 +448,23 @@ def run_gui():
             arrivals = tracker.get_arrivals(station)
             if arrivals:
                 for direction in sorted(arrivals.keys()):
-                    format_row(f" {direction} ", None, "", is_header=True)
-                    for route_id, minutes_away, destination in arrivals[direction]:
-                        format_row(route_id, minutes_away, destination)
+                    # Direction header
+                    direction_label = tk.Label(arrivals_frame, text=f" {direction} ", font=small_font, fg=text_color, bg="black", anchor="w")
+                    direction_label.pack(fill="x", padx=5, pady=(10, 0))
+                    
+                    # Container for columns
+                    direction_frame = tk.Frame(arrivals_frame, bg="black")
+                    direction_frame.pack(fill="x", padx=5, pady=2)
+                    
+                    trains = arrivals[direction]
+                    for chunk in chunks(trains, 2):
+                        col_frame = tk.Frame(direction_frame, bg="black")
+                        col_frame.pack(side="left", padx=20)  # Increased spacing between columns
+                        for route_id, minutes_away, destination in chunk:
+                            format_row(route_id, minutes_away, col_frame)
             else:
                 lbl = tk.Label(arrivals_frame, text="No arrivals found", font=sign_font, fg=text_color, bg="black")
-                lbl.pack(pady=20)
+                lbl.pack(pady=15)
 
             # Alerts
             alerts = tracker.get_alerts(station)
@@ -457,9 +477,9 @@ def run_gui():
                         continue
                     seen.add(key)
                     messages.append(f"Line {alert.route_id}: {alert.message}")
-                    alerts_var.set("  ⚠  " + "    •    ".join(messages))
-                else:
-                    alerts_var.set("  ✓ No service alerts")
+                alerts_var.set("  ⚠  " + "    •    ".join(messages))
+            else:
+                alerts_var.set("  ✓ No service alerts")
 
             arrivals_frame.update_idletasks()
             arrivals_canvas.config(scrollregion=arrivals_canvas.bbox("all"))

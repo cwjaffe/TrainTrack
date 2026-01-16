@@ -31,9 +31,13 @@ setup(
         "Topic :: System :: Monitoring",
     ],
     python_requires=">=3.8",
-    install_requires=[],
+    install_requires=[
+        "requests>=2.25.0",
+        "pandas>=1.3.0",
+        "google-transit-realtime-bindings>=0.2.9",
+        "protobuf>=3.17.0",
+    ],
     extras_require={
-        "realtime": ["google-transit-realtime-bindings>=0.2.9"],
         "dev": ["pytest>=6.0", "black", "flake8"],
     },
 )
