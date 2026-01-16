@@ -421,8 +421,6 @@ def run_gui():
             lbl_line.pack(side="left")
             lbl_min = tk.Label(row, text=f"{mins:>3} min", width=10, font=sign_font, fg=text_color, bg=bg, anchor="w")
             lbl_min.pack(side="left")
-            lbl_dest = tk.Label(row, text=f"→ {dest}", font=sign_font, fg=text_color, bg=bg, anchor="w")
-            lbl_dest.pack(side="left", fill="x", expand=True)
 
         def update_display(stop_id, display_name):
             try:
@@ -527,4 +525,3 @@ def get_line_color(route_id):
 
 if __name__ == "__main__":
     main()
-
