@@ -275,6 +275,9 @@ def interactive_mode():
 def main():
     """Main entry point."""
     if len(sys.argv) > 1:
+        if sys.argv[1] == "--matrix":
+            run_matrix()
+            return
         # Command line mode
         user_input = " ".join(sys.argv[1:])
         matches = find_stop_ids(user_input)
