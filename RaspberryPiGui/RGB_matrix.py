@@ -714,3 +714,6 @@ def run_matrix():
         except KeyboardInterrupt:
             clear()
             break
+
+if __name__ == "__main__":
+    main()
