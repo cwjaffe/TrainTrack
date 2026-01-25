@@ -16,6 +16,17 @@ python examples/demo_app.py "Times Square"
 python examples/demo_app.py
 ```
 
+### Raspberry Pi RGB Matrix Display
+
+```bash
+python RaspberryPiGui/RGB_matrix.py --matrix
+```
+
+- Lists all stations for selection.
+- Displays arrivals on a 32x8 RGB LED matrix.
+- Shows route letter, minutes, and direction arrow (rightmost 5 columns).
+- Press Ctrl+C to quit and re-select station at any time.
+
 ## Installation
 
 ```bash
@@ -43,6 +54,9 @@ TrainTrack/
 │   ├── mta_client.py       # MTA GTFS-Realtime client
 │   └── station_tracker.py  # Main tracker class
 │
+├── RaspberryPiGui/         # Raspberry Pi matrix display code
+│   └── RGB_matrix.py       # RGB LED matrix display script
+│
 ├── tests/                   # Test suite
 │   ├── __init__.py
 │   └── test_station_tracker.py
@@ -67,6 +81,7 @@ TrainTrack/
 ✅ Service alerts and delays  
 ✅ Station lookup by name or stop ID  
 ✅ Direction-aware labels (Downtown/Uptown, Eastbound/Westbound)  
+✅ RGB Matrix display with route, minutes, and direction arrow  
 ✅ Lightweight - runs on Raspberry Pi Zero (512MB RAM)  
 ✅ No API keys required  
 ✅ Pure Python, minimal dependencies  
@@ -94,10 +109,17 @@ arrivals = tracker.get_arrivals(station)
 alerts = tracker.get_alerts(station)
 ```
 
+### RGB Matrix Display
+
+```bash
+python RaspberryPiGui/RGB_matrix.py --matrix
+```
+
 ## Requirements
 
 - Python 3.8+
 - No heavy dependencies (works with just urllib3)
+- For RGB matrix: [rpi_ws281x](https://github.com/jgarff/rpi_ws281x) (for Raspberry Pi LED matrix support)
 
 ## For Raspberry Pi Zero
 
