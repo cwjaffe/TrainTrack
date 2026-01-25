@@ -654,13 +654,16 @@ def run_matrix():
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
 
-    # --- Add this helper for zig-zag layout ---
+    # --- Corrected for vertical zigzag, column-major, starting top-right ---
     def matrix_index(x, y):
-        # For serpentine layout: even rows left-to-right, odd rows right-to-left
-        if y % 2 == 0:
-            return y * MATRIX_WIDTH + x
+        # x=31 is rightmost, x=0 is leftmost
+        col = MATRIX_WIDTH - 1 - x  # reverse x so 31 is first column
+        if col % 2 == 0:
+            # Even column: top to bottom
+            return col * MATRIX_HEIGHT + y
         else:
-            return y * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - x)
+            # Odd column: bottom to top
+            return col * MATRIX_HEIGHT + (MATRIX_HEIGHT - 1 - y)
 
     def clear():
         for y in range(MATRIX_HEIGHT):
