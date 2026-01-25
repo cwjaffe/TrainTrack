@@ -721,23 +721,23 @@ def run_matrix():
             "0000"
         ],
         "right": [
-            "0010",
+            "0001",
             "0011",
+            "0111",
             "1111",
-            "1111",
+            "0111",
             "0011",
-            "0010",
-            "0000",
+            "0001",
             "0000"
         ],
         "left": [
-            "0100",
+            "1000",
             "1100",
+            "1110",
             "1111",
-            "1111",
+            "1110",
             "1100",
-            "0100",
-            "0000",
+            "1000",
             "0000"
         ],
         "dot": [
@@ -755,13 +755,14 @@ def run_matrix():
     def get_direction_arrow(direction):
         # Accepts direction string, returns arrow key
         d = direction.lower()
-        if d in ("n", "north", "uptown", "u"):
+        # Try to match common direction names
+        if any(word in d for word in ("n", "north", "uptown", "u")):
             return "up"
-        if d in ("s", "south", "downtown", "d"):
+        if any(word in d for word in ("s", "south", "downtown", "d")):
             return "down"
-        if d in ("e", "east", "r"):
+        if any(word in d for word in ("e", "east", "r")):
             return "right"
-        if d in ("w", "west", "l"):
+        if any(word in d for word in ("w", "west", "l")):
             return "left"
         return "dot"
 
@@ -790,7 +791,6 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
-    # Move this function ABOVE draw_arrival so it is defined before use
     def get_line_color_ws281x(route_id):
         # Map to RGB values
         colors = {
@@ -809,10 +809,42 @@ def run_matrix():
 
     def draw_arrival(route_id, minutes_away, direction):
         clear()
-        digit = minutes_away if 0 <= minutes_away <= 9 else 9
-        draw_7seg_digit(digit, Color(255,255,255))
+        # Switch: draw the letter on the left, number in the center
         line_color = get_line_color_ws281x(route_id)
-        draw_letter_centered(route_id[0], line_color)
+        draw_letter_centered(route_id[0], line_color)  # Centered letter (now left)
+        # Draw the number in the center (columns 12-19), move letter to left (columns 0-7)
+        # So, swap: draw letter at x_offset=0, number at x_offset=12
+        # We'll use the existing draw_7seg_digit, but shift it to center
+        def draw_7seg_digit_centered(digit, color):
+            pattern = SEGMENTS.get(digit, SEGMENTS[0])
+            x_offset = 12  # Centered
+            y_offset = 0
+            for seg, on in enumerate(pattern):
+                if not on:
+                    continue
+                for px, py in SEG_POS[seg]:
+                    x = x_offset + px
+                    y = y_offset + py
+                    if 0 <= x < 20 and 0 <= y < 8:
+                        idx = matrix_index(x, y)
+                        if idx < LED_COUNT:
+                            strip.setPixelColor(idx, color)
+        # Draw the route letter on the left (columns 0-7)
+        def draw_letter_left(char, color):
+            font = FONT_8x8.get(char.upper())
+            if not font:
+                return
+            x_offset = 0
+            for y in range(8):
+                for x in range(8):
+                    if font[y][x] == '1':
+                        idx = matrix_index(x + x_offset, y)
+                        if idx < LED_COUNT:
+                            strip.setPixelColor(idx, color)
+        # Actually swap: letter left, number center
+        draw_letter_left(route_id[0], line_color)
+        digit = minutes_away if 0 <= minutes_away <= 9 else 9
+        draw_7seg_digit_centered(digit, Color(255,255,255))
         draw_direction_arrow(direction, Color(0,255,255))
         strip.show()
 
