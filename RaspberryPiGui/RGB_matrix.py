@@ -698,7 +698,7 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
-    # Arrow bitmaps for direction indicator (4x8, rightmost columns)
+    # Arrow bitmaps for direction indicator (4x8, columns 27-30)
     ARROWS = {
         "up": [
             "0010",
@@ -753,25 +753,24 @@ def run_matrix():
     }
 
     def get_direction_arrow(direction):
-        # Accepts direction string, returns arrow key
         d = direction.lower()
-        # Try to match common direction names
-        if any(word in d for word in ("n", "north", "uptown", "u")):
+        # Use substrings for robust matching
+        if "north" in d or "uptown" in d or d == "n" or d == "u":
             return "up"
-        if any(word in d for word in ("s", "south", "downtown", "d")):
+        if "south" in d or "downtown" in d or d == "s" or d == "d":
             return "down"
-        if any(word in d for word in ("e", "east", "r")):
+        if "east" in d or d == "e" or d == "r":
             return "right"
-        if any(word in d for word in ("w", "west", "l")):
+        if "west" in d or d == "w" or d == "l":
             return "left"
         return "dot"
 
-    def draw_letter_centered(char, color):
-        # Center the letter in columns 12-19 (8x8)
+    def draw_letter_left(char, color):
+        # Draw the letter in columns 0-7 (leftmost)
         font = FONT_8x8.get(char.upper())
         if not font:
             return
-        x_offset = 12
+        x_offset = 0
         for y in range(8):
             for x in range(8):
                 if font[y][x] == '1':
@@ -779,11 +778,27 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
+    def draw_7seg_digit_centered(digit, color):
+        # Draw the digit in columns 12-19 (center)
+        pattern = SEGMENTS.get(digit, SEGMENTS[0])
+        x_offset = 12
+        y_offset = 0
+        for seg, on in enumerate(pattern):
+            if not on:
+                continue
+            for px, py in SEG_POS[seg]:
+                x = x_offset + px
+                y = y_offset + py
+                if 0 <= x < 20 and 0 <= y < 8:
+                    idx = matrix_index(x, y)
+                    if idx < LED_COUNT:
+                        strip.setPixelColor(idx, color)
+
     def draw_direction_arrow(direction, color):
-        # Draw a 4x8 arrow at columns 28-31
+        # Draw a 4x8 arrow at columns 27-30 (move left by one column)
         arrow_key = get_direction_arrow(direction)
         arrow = ARROWS[arrow_key]
-        x_offset = 28
+        x_offset = 27
         for y in range(8):
             for x in range(4):
                 if arrow[y][x] == '1':
@@ -809,39 +824,8 @@ def run_matrix():
 
     def draw_arrival(route_id, minutes_away, direction):
         clear()
-        # Switch: draw the letter on the left, number in the center
+        # Draw the letter on the left, number in the center, arrow at columns 27-30
         line_color = get_line_color_ws281x(route_id)
-        draw_letter_centered(route_id[0], line_color)  # Centered letter (now left)
-        # Draw the number in the center (columns 12-19), move letter to left (columns 0-7)
-        # So, swap: draw letter at x_offset=0, number at x_offset=12
-        # We'll use the existing draw_7seg_digit, but shift it to center
-        def draw_7seg_digit_centered(digit, color):
-            pattern = SEGMENTS.get(digit, SEGMENTS[0])
-            x_offset = 12  # Centered
-            y_offset = 0
-            for seg, on in enumerate(pattern):
-                if not on:
-                    continue
-                for px, py in SEG_POS[seg]:
-                    x = x_offset + px
-                    y = y_offset + py
-                    if 0 <= x < 20 and 0 <= y < 8:
-                        idx = matrix_index(x, y)
-                        if idx < LED_COUNT:
-                            strip.setPixelColor(idx, color)
-        # Draw the route letter on the left (columns 0-7)
-        def draw_letter_left(char, color):
-            font = FONT_8x8.get(char.upper())
-            if not font:
-                return
-            x_offset = 0
-            for y in range(8):
-                for x in range(8):
-                    if font[y][x] == '1':
-                        idx = matrix_index(x + x_offset, y)
-                        if idx < LED_COUNT:
-                            strip.setPixelColor(idx, color)
-        # Actually swap: letter left, number center
         draw_letter_left(route_id[0], line_color)
         digit = minutes_away if 0 <= minutes_away <= 9 else 9
         draw_7seg_digit_centered(digit, Color(255,255,255))
