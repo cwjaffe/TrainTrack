@@ -700,7 +700,7 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
-    # --- Arrow bitmaps for direction indicator (5x8, columns 27-31) ---
+    # --- Arrow bitmaps for direction indicator (6x8, columns 26-31) ---
     ARROWS = {
         "up": [
             "00100",
@@ -754,11 +754,31 @@ def run_matrix():
         ]
     }
 
+    def get_direction_arrow(direction):
+        d = direction.lower()
+        if "north" in d or "uptown" in d or d == "n" or d == "u":
+            return "up"
+        if "south" in d or "downtown" in d or d == "s" or d == "d":
+            return "down"
+        if "east" in d or d == "e" or d == "r":
+            return "right"
+        if "west" in d or d == "w" or d == "l":
+            return "left"
+        if "manhattan" in d:
+            return "up"
+        if "bronx" in d:
+            return "up"
+        if "brooklyn" in d:
+            return "down"
+        if "queens" in d:
+            return "right"
+        return "dot"
+
     def draw_direction_arrow(direction, color):
-        # Draw a 5x8 arrow at columns 27-31 (fills to the right edge)
+        # Draw a 5x8 arrow at columns 26-31 (fills to the right edge)
         arrow_key = get_direction_arrow(direction)
         arrow = ARROWS[arrow_key]
-        x_offset = 27
+        x_offset = 26
         for y in range(8):
             for x in range(5):
                 if arrow[y][x] == '1':
