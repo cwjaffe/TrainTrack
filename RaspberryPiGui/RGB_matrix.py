@@ -698,7 +698,7 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
-    # Arrow bitmaps for direction indicator (4x8, columns 27-30)
+    # Arrow bitmaps for direction indicator (4x8, columns 26-29)
     ARROWS = {
         "up": [
             "0010",
@@ -754,7 +754,6 @@ def run_matrix():
 
     def get_direction_arrow(direction):
         d = direction.lower()
-        print(f"DEBUG: direction string received: '{direction}'")
         # Use substrings for robust matching
         if "north" in d or "uptown" in d or d == "n" or d == "u":
             return "up"
@@ -805,10 +804,10 @@ def run_matrix():
                         strip.setPixelColor(idx, color)
 
     def draw_direction_arrow(direction, color):
-        # Draw a 4x8 arrow at columns 27-30 (move left by one column)
+        # Draw a 4x8 arrow at columns 26-29 (move left by one more column)
         arrow_key = get_direction_arrow(direction)
         arrow = ARROWS[arrow_key]
-        x_offset = 27
+        x_offset = 26
         for y in range(8):
             for x in range(4):
                 if arrow[y][x] == '1':
