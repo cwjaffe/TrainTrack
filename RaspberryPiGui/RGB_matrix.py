@@ -12,6 +12,7 @@ import os
 from typing import List, Dict
 from datetime import datetime
 import time
+import threading
 # Add missing import for traceback (used in main)
 import traceback
 
@@ -630,7 +631,6 @@ def run_matrix():
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
 
-    # --- List all stations and allow selection ---
     def select_station():
         print("\nAvailable stations:")
         for idx, (stop_id, display) in enumerate(sorted_stations, 1):
@@ -660,7 +660,7 @@ def run_matrix():
 
     # --- Fix mirroring: x=0 is rightmost, x=31 is leftmost ---
     def matrix_index(x, y):
-        col = x  # x=0 is rightmost, x=31 is leftmost
+        col = x
         if col % 2 == 0:
             # Even column: top to bottom
             return col * MATRIX_HEIGHT + y
@@ -669,10 +669,8 @@ def run_matrix():
             return col * MATRIX_HEIGHT + (MATRIX_HEIGHT - 1 - y)
 
     def clear():
-        for y in range(MATRIX_HEIGHT):
-            for x in range(MATRIX_WIDTH):
-                idx = matrix_index(x, y)
-                strip.setPixelColor(idx, Color(0,0,0))
+        for i in range(LED_COUNT):
+            strip.setPixelColor(i, Color(0,0,0))
         strip.show()
 
     def draw_7seg_digit(digit, color):
@@ -702,63 +700,62 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
-    # Arrow bitmaps for direction indicator (now 7x8, columns 24-31)
+    # --- Arrow bitmaps for direction indicator (8x8, columns 24-31) ---
     ARROWS = {
         "up": [
-            "0000010",
-            "0000111",
-            "0001111",
-            "0000010",
-            "0000010",
-            "0000010",
-            "0000010",
-            "0000000"
+            "00000010",
+            "00000111",
+            "00001111",
+            "00000010",
+            "00000010",
+            "00000010",
+            "00000010",
+            "00000000"
         ],
         "down": [
-            "0000010",
-            "0000010",
-            "0000010",
-            "0000010",
-            "0001111",
-            "0000111",
-            "0000010",
-            "0000000"
+            "00000010",
+            "00000010",
+            "00000010",
+            "00000010",
+            "00001111",
+            "00000111",
+            "00000010",
+            "00000000"
         ],
         "right": [
-            "0000001",
-            "0000011",
-            "0000111",
-            "0001111",
-            "0000111",
-            "0000011",
-            "0000001",
-            "0000000"
+            "00000001",
+            "00000011",
+            "00000111",
+            "00001111",
+            "00000111",
+            "00000011",
+            "00000001",
+            "00000000"
         ],
         "left": [
-            "1000000",
-            "1100000",
-            "1110000",
-            "1111000",
-            "1110000",
-            "1100000",
-            "1000000",
-            "0000000"
+            "10000000",
+            "11000000",
+            "11100000",
+            "11110000",
+            "11100000",
+            "11000000",
+            "10000000",
+            "00000000"
         ],
         "dot": [
-            "0000000",
-            "0000000",
-            "0000000",
-            "0000110",
-            "0000110",
-            "0000000",
-            "0000000",
-            "0000000"
+            "00000000",
+            "00000000",
+            "00000000",
+            "00000110",
+            "00000110",
+            "00000000",
+            "00000000",
+            "00000000"
         ]
     }
 
     def get_direction_arrow(direction):
         d = direction.lower()
-        # Use substrings for robust matching
         if "north" in d or "uptown" in d or d == "n" or d == "u":
             return "up"
         if "south" in d or "downtown" in d or d == "s" or d == "d":
@@ -767,7 +764,6 @@ def run_matrix():
             return "right"
         if "west" in d or d == "w" or d == "l":
             return "left"
-        # Add borough-bound logic
         if "manhattan" in d:
             return "up"
         if "bronx" in d:
@@ -777,6 +773,18 @@ def run_matrix():
         if "queens" in d:
             return "right"
         return "dot"
+
+    def draw_direction_arrow(direction, color):
+        # Draw an 8x8 arrow at columns 24-31 (fills to the right edge)
+        arrow_key = get_direction_arrow(direction)
+        arrow = ARROWS[arrow_key]
+        x_offset = 24
+        for y in range(8):
+            for x in range(8):
+                if arrow[y][x] == '1':
+                    idx = matrix_index(x + x_offset, y)
+                    if idx < LED_COUNT:
+                        strip.setPixelColor(idx, color)
 
     def draw_letter_left(char, color):
         # Draw the letter in columns 0-7 (leftmost)
@@ -807,18 +815,6 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
-    def draw_direction_arrow(direction, color):
-        # Draw a 7x8 arrow at columns 24-31 (fills to the right edge)
-        arrow_key = get_direction_arrow(direction)
-        arrow = ARROWS[arrow_key]
-        x_offset = 24
-        for y in range(8):
-            for x in range(7):
-                if arrow[y][x] == '1':
-                    idx = matrix_index(x + x_offset, y)
-                    if idx < LED_COUNT:
-                        strip.setPixelColor(idx, color)
-
     def get_line_color_ws281x(route_id):
         # Map to RGB values
         colors = {
@@ -837,7 +833,6 @@ def run_matrix():
 
     def draw_arrival(route_id, minutes_away, direction):
         clear()
-        # Draw the letter on the left, number in the center, arrow at columns 27-30
         line_color = get_line_color_ws281x(route_id)
         draw_letter_left(route_id[0], line_color)
         digit = minutes_away if 0 <= minutes_away <= 9 else 9
@@ -863,20 +858,16 @@ def run_matrix():
                 route_id, minutes_away, direction = all_trains[page % total_trains]
                 draw_arrival(route_id, minutes_away, direction)
             page = (page + 1) % max(1, total_trains)
-            print("\nType 'station' to change station, or Ctrl+C to quit.")
-            # Wait for up to 5 seconds, allow station change
-            start = time.time()
-            while time.time() - start < 5:
-                if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                    cmd = sys.stdin.readline().strip()
-                    if cmd.lower() == "station":
-                        new_station = select_station()
-                        if new_station is None:
-                            clear()
-                            return
-                        selected_station = new_station
-                        page = 0
-                        break
+            # Prompt for station change after each page
+            print("\nType 'station' to change station, or press Enter to continue, Ctrl+C to quit.")
+            user_input = input().strip()
+            if user_input.lower() == "station":
+                new_station = select_station()
+                if new_station is None:
+                    clear()
+                    return
+                selected_station = new_station
+                page = 0
         except KeyboardInterrupt:
             clear()
             break
