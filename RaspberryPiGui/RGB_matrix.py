@@ -326,7 +326,7 @@ LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT
 LED_PIN = 18  # GPIO pin
 LED_FREQ_HZ = 800000
 LED_DMA = 10
-LED_BRIGHTNESS = 16
+LED_BRIGHTNESS = 8
 LED_INVERT = False
 LED_CHANNEL = 0
 
@@ -764,6 +764,15 @@ def run_matrix():
             return "right"
         if "west" in d or d == "w" or d == "l":
             return "left"
+        # Add borough-bound logic
+        if "manhattan" in d:
+            return "up"
+        if "bronx" in d:
+            return "up"
+        if "brooklyn" in d:
+            return "down"
+        if "queens" in d:
+            return "right"
         return "dot"
 
     def draw_letter_left(char, color):
@@ -851,7 +860,7 @@ def run_matrix():
                 route_id, minutes_away, direction = all_trains[page % total_trains]
                 draw_arrival(route_id, minutes_away, direction)
             page = (page + 1) % max(1, total_trains)
-            time.sleep(10)
+            time.sleep(5)  # <-- Changed from 10 to 5 seconds
         except KeyboardInterrupt:
             clear()
             break
