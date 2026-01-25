@@ -1,2 +1,2 @@
-google-transit-realtime-bindings==0.2.9
+gtfs-realtime-bindings
 rpi_ws281x>=4.3.1

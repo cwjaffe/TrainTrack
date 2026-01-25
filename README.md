@@ -27,6 +27,28 @@ python RaspberryPiGui/RGB_matrix.py --matrix
 - Shows route letter, minutes, and direction arrow (rightmost 5 columns).
 - Press Ctrl+C to quit and re-select station at any time.
 
+### Graphical User Interface (GUI)
+
+#### Cross-platform GUI (Tkinter)
+
+```bash
+python examples/GUIapp.py
+```
+
+- Modern train sign-style GUI for desktop or Raspberry Pi touchscreen.
+- Search and select stations, see arrivals and alerts.
+- Responsive layout, fullscreen support for Pi displays.
+
+#### Pi Touchscreen GUI (Tkinter, fullscreen)
+
+```bash
+python RaspberryPiGui/PiGuiApp
+```
+
+- Optimized for 800x480 Raspberry Pi HDMI/touchscreen displays.
+- Large fonts, touch-friendly, fullscreen by default.
+- Search and select stations, see arrivals and alerts.
+
 ## Installation
 
 ```bash
@@ -54,8 +76,9 @@ TrainTrack/
 │   ├── mta_client.py       # MTA GTFS-Realtime client
 │   └── station_tracker.py  # Main tracker class
 │
-├── RaspberryPiGui/         # Raspberry Pi matrix display code
-│   └── RGB_matrix.py       # RGB LED matrix display script
+├── RaspberryPiGui/         # Raspberry Pi matrix & GUI code
+│   ├── RGB_matrix.py       # RGB LED matrix display script
+│   └── PiGuiApp            # Touchscreen GUI for Pi
 │
 ├── tests/                   # Test suite
 │   ├── __init__.py
@@ -64,7 +87,8 @@ TrainTrack/
 ├── examples/               # Example applications
 │   ├── demo_app.py        # Ready-to-use demo (recommended)
 │   ├── app.py             # Full version with real data
-│   └── example.py         # Programmatic usage example
+│   ├── example.py         # Programmatic usage example
+│   └── GUIapp.py          # Cross-platform GUI (Tkinter)
 │
 ├── docs/                  # Documentation
 │   ├── README.md          # Full documentation
@@ -82,6 +106,7 @@ TrainTrack/
 ✅ Station lookup by name or stop ID  
 ✅ Direction-aware labels (Downtown/Uptown, Eastbound/Westbound)  
 ✅ RGB Matrix display with route, minutes, and direction arrow  
+✅ Modern GUI for desktop and Pi touchscreen  
 ✅ Lightweight - runs on Raspberry Pi Zero (512MB RAM)  
 ✅ No API keys required  
 ✅ Pure Python, minimal dependencies  
@@ -115,11 +140,24 @@ alerts = tracker.get_alerts(station)
 python RaspberryPiGui/RGB_matrix.py --matrix
 ```
 
+### GUI (Tkinter)
+
+```bash
+python examples/GUIapp.py
+```
+
+### Pi Touchscreen GUI
+
+```bash
+python RaspberryPiGui/PiGuiApp
+```
+
 ## Requirements
 
 - Python 3.8+
 - No heavy dependencies (works with just urllib3)
 - For RGB matrix: [rpi_ws281x](https://github.com/jgarff/rpi_ws281x) (for Raspberry Pi LED matrix support)
+- For GUI: Tkinter (included with most Python installations)
 
 ## For Raspberry Pi Zero
 
