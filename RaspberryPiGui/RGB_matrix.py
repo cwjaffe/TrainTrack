@@ -698,29 +698,106 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
-    def draw_arrival(route_id, minutes_away):
+    # Arrow bitmaps for direction indicator (4x8, rightmost columns)
+    ARROWS = {
+        "up": [
+            "0010",
+            "0111",
+            "1111",
+            "0010",
+            "0010",
+            "0010",
+            "0010",
+            "0000"
+        ],
+        "down": [
+            "0010",
+            "0010",
+            "0010",
+            "0010",
+            "1111",
+            "0111",
+            "0010",
+            "0000"
+        ],
+        "right": [
+            "0010",
+            "0011",
+            "1111",
+            "1111",
+            "0011",
+            "0010",
+            "0000",
+            "0000"
+        ],
+        "left": [
+            "0100",
+            "1100",
+            "1111",
+            "1111",
+            "1100",
+            "0100",
+            "0000",
+            "0000"
+        ],
+        "dot": [
+            "0000",
+            "0000",
+            "0000",
+            "0110",
+            "0110",
+            "0000",
+            "0000",
+            "0000"
+        ]
+    }
+
+    def get_direction_arrow(direction):
+        # Accepts direction string, returns arrow key
+        d = direction.lower()
+        if d in ("n", "north", "uptown", "u"):
+            return "up"
+        if d in ("s", "south", "downtown", "d"):
+            return "down"
+        if d in ("e", "east", "r"):
+            return "right"
+        if d in ("w", "west", "l"):
+            return "left"
+        return "dot"
+
+    def draw_letter_centered(char, color):
+        # Center the letter in columns 12-19 (8x8)
+        font = FONT_8x8.get(char.upper())
+        if not font:
+            return
+        x_offset = 12
+        for y in range(8):
+            for x in range(8):
+                if font[y][x] == '1':
+                    idx = matrix_index(x + x_offset, y)
+                    if idx < LED_COUNT:
+                        strip.setPixelColor(idx, color)
+
+    def draw_direction_arrow(direction, color):
+        # Draw a 4x8 arrow at columns 28-31
+        arrow_key = get_direction_arrow(direction)
+        arrow = ARROWS[arrow_key]
+        x_offset = 28
+        for y in range(8):
+            for x in range(4):
+                if arrow[y][x] == '1':
+                    idx = matrix_index(x + x_offset, y)
+                    if idx < LED_COUNT:
+                        strip.setPixelColor(idx, color)
+
+    def draw_arrival(route_id, minutes_away, direction):
         clear()
         digit = minutes_away if 0 <= minutes_away <= 9 else 9
         draw_7seg_digit(digit, Color(255,255,255))
         line_color = get_line_color_ws281x(route_id)
-        draw_letter(route_id[0], line_color)
+        draw_letter_centered(route_id[0], line_color)
+        draw_direction_arrow(direction, Color(0,255,255))
         strip.show()
-
-    def get_line_color_ws281x(route_id):
-        # Map to RGB values
-        colors = {
-            'A': Color(0,0,255), 'C': Color(0,0,255), 'E': Color(0,0,255),
-            'B': Color(255,140,0), 'D': Color(255,140,0), 'F': Color(255,140,0), 'M': Color(255,140,0),
-            'G': Color(50,205,50),
-            'J': Color(139,69,19), 'Z': Color(139,69,19),
-            'L': Color(128,128,128),
-            'N': Color(246,188,38), 'Q': Color(246,188,38), 'R': Color(246,188,38), 'W': Color(246,188,38),
-            '1': Color(255,0,0), '2': Color(255,0,0), '3': Color(255,0,0),
-            '4': Color(0,255,0), '5': Color(0,255,0), '6': Color(0,255,0),
-            '7': Color(128,0,128),
-            'S': Color(128,128,128)
-        }
-        return colors.get(route_id, Color(0,0,0))
 
     page = 0
     while True:
@@ -737,8 +814,8 @@ def run_matrix():
             if total_trains == 0:
                 clear()
             else:
-                route_id, minutes_away, _ = all_trains[page % total_trains]
-                draw_arrival(route_id, minutes_away)
+                route_id, minutes_away, direction = all_trains[page % total_trains]
+                draw_arrival(route_id, minutes_away, direction)
             page = (page + 1) % max(1, total_trains)
             time.sleep(10)
         except KeyboardInterrupt:
