@@ -790,6 +790,23 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
+    # Move this function ABOVE draw_arrival so it is defined before use
+    def get_line_color_ws281x(route_id):
+        # Map to RGB values
+        colors = {
+            'A': Color(0,0,255), 'C': Color(0,0,255), 'E': Color(0,0,255),
+            'B': Color(255,140,0), 'D': Color(255,140,0), 'F': Color(255,140,0), 'M': Color(255,140,0),
+            'G': Color(50,205,50),
+            'J': Color(139,69,19), 'Z': Color(139,69,19),
+            'L': Color(128,128,128),
+            'N': Color(246,188,38), 'Q': Color(246,188,38), 'R': Color(246,188,38), 'W': Color(246,188,38),
+            '1': Color(255,0,0), '2': Color(255,0,0), '3': Color(255,0,0),
+            '4': Color(0,255,0), '5': Color(0,255,0), '6': Color(0,255,0),
+            '7': Color(128,0,128),
+            'S': Color(128,128,128)
+        }
+        return colors.get(route_id, Color(0,0,0))
+
     def draw_arrival(route_id, minutes_away, direction):
         clear()
         digit = minutes_away if 0 <= minutes_away <= 9 else 9
