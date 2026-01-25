@@ -627,32 +627,36 @@ def run_matrix():
     all_stations = get_all_stations()
     sorted_stations = sorted(all_stations.items(), key=lambda kv: kv[1].lower())
 
-    # --- Station selection prompt ---
-    print("\nAvailable stations:")
-    for idx, (stop_id, display) in enumerate(sorted_stations[:20], 1):
-        print(f"{idx:2d}. {display}")
-    print("...")
-
-    selected_station = None
-    while selected_station is None:
-        user_input = input("\nEnter station name, stop ID, or number from above: ").strip()
-        if user_input.isdigit():
-            idx = int(user_input) - 1
-            if 0 <= idx < len(sorted_stations):
-                selected_station = sorted_stations[idx][0]
-                break
-            else:
-                print("Invalid number.")
-        else:
-            matches = [sid for sid, disp in sorted_stations if user_input.lower() in disp.lower() or user_input.lower() == sid.lower()]
-            if matches:
-                selected_station = matches[0]
-                break
-            else:
-                print("No match found. Try again.")
-
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
+
+    # --- List all stations and allow selection ---
+    def select_station():
+        print("\nAvailable stations:")
+        for idx, (stop_id, display) in enumerate(sorted_stations, 1):
+            print(f"{idx:3d}. {display}")
+        print("Type a number, station name, or stop ID to select a station.")
+        print("Type 'quit' to exit.")
+        while True:
+            user_input = input("\nSelect station: ").strip()
+            if user_input.lower() == "quit":
+                return None
+            if user_input.isdigit():
+                idx = int(user_input) - 1
+                if 0 <= idx < len(sorted_stations):
+                    return sorted_stations[idx][0]
+                else:
+                    print("Invalid number.")
+            else:
+                matches = [sid for sid, disp in sorted_stations if user_input.lower() in disp.lower() or user_input.lower() == sid.lower()]
+                if matches:
+                    return matches[0]
+                else:
+                    print("No match found. Try again.")
+
+    selected_station = select_station()
+    if selected_station is None:
+        return
 
     # --- Fix mirroring: x=0 is rightmost, x=31 is leftmost ---
     def matrix_index(x, y):
@@ -698,57 +702,57 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
-    # Arrow bitmaps for direction indicator (now 6x8, columns 25-30)
+    # Arrow bitmaps for direction indicator (now 7x8, columns 24-31)
     ARROWS = {
         "up": [
-            "000010",
-            "000111",
-            "001111",
-            "000010",
-            "000010",
-            "000010",
-            "000010",
-            "000000"
+            "0000010",
+            "0000111",
+            "0001111",
+            "0000010",
+            "0000010",
+            "0000010",
+            "0000010",
+            "0000000"
         ],
         "down": [
-            "000010",
-            "000010",
-            "000010",
-            "000010",
-            "001111",
-            "000111",
-            "000010",
-            "000000"
+            "0000010",
+            "0000010",
+            "0000010",
+            "0000010",
+            "0001111",
+            "0000111",
+            "0000010",
+            "0000000"
         ],
         "right": [
-            "000001",
-            "000011",
-            "000111",
-            "001111",
-            "000111",
-            "000011",
-            "000001",
-            "000000"
+            "0000001",
+            "0000011",
+            "0000111",
+            "0001111",
+            "0000111",
+            "0000011",
+            "0000001",
+            "0000000"
         ],
         "left": [
-            "100000",
-            "110000",
-            "111000",
-            "111100",
-            "111000",
-            "110000",
-            "100000",
-            "000000"
+            "1000000",
+            "1100000",
+            "1110000",
+            "1111000",
+            "1110000",
+            "1100000",
+            "1000000",
+            "0000000"
         ],
         "dot": [
-            "000000",
-            "000000",
-            "000000",
-            "000110",
-            "000110",
-            "000000",
-            "000000",
-            "000000"
+            "0000000",
+            "0000000",
+            "0000000",
+            "0000110",
+            "0000110",
+            "0000000",
+            "0000000",
+            "0000000"
         ]
     }
 
@@ -804,12 +808,12 @@ def run_matrix():
                         strip.setPixelColor(idx, color)
 
     def draw_direction_arrow(direction, color):
-        # Draw a 6x8 arrow at columns 25-30 (fills to the right edge)
+        # Draw a 7x8 arrow at columns 24-31 (fills to the right edge)
         arrow_key = get_direction_arrow(direction)
         arrow = ARROWS[arrow_key]
-        x_offset = 25
+        x_offset = 24
         for y in range(8):
-            for x in range(6):
+            for x in range(7):
                 if arrow[y][x] == '1':
                     idx = matrix_index(x + x_offset, y)
                     if idx < LED_COUNT:
@@ -859,7 +863,20 @@ def run_matrix():
                 route_id, minutes_away, direction = all_trains[page % total_trains]
                 draw_arrival(route_id, minutes_away, direction)
             page = (page + 1) % max(1, total_trains)
-            time.sleep(5)  # <-- Changed from 10 to 5 seconds
+            print("\nType 'station' to change station, or Ctrl+C to quit.")
+            # Wait for up to 5 seconds, allow station change
+            start = time.time()
+            while time.time() - start < 5:
+                if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                    cmd = sys.stdin.readline().strip()
+                    if cmd.lower() == "station":
+                        new_station = select_station()
+                        if new_station is None:
+                            clear()
+                            return
+                        selected_station = new_station
+                        page = 0
+                        break
         except KeyboardInterrupt:
             clear()
             break
