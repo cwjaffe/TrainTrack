@@ -758,7 +758,7 @@ def run_matrix():
         # Draw a 5x8 arrow at columns 27-31 (fills to the right edge)
         arrow_key = get_direction_arrow(direction)
         arrow = ARROWS[arrow_key]
-        x_offset = 27  # Start at column 27, so columns 27-31 are used
+        x_offset = 27
         for y in range(8):
             for x in range(5):
                 if arrow[y][x] == '1':
