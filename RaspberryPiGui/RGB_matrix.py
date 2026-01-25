@@ -754,6 +754,7 @@ def run_matrix():
 
     def get_direction_arrow(direction):
         d = direction.lower()
+        print(f"DEBUG: direction string received: '{direction}'")
         # Use substrings for robust matching
         if "north" in d or "uptown" in d or d == "n" or d == "u":
             return "up"
