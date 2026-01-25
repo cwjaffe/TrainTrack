@@ -700,57 +700,57 @@ def run_matrix():
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
-    # --- Arrow bitmaps for direction indicator (8x8, columns 24-31) ---
+    # --- Arrow bitmaps for direction indicator (6x8, columns 26-31) ---
     ARROWS = {
         "up": [
-            "00000010",
-            "00000111",
-            "00001111",
-            "00000010",
-            "00000010",
-            "00000010",
-            "00000010",
-            "00000000"
+            "000010",
+            "000111",
+            "001111",
+            "000010",
+            "000010",
+            "000010",
+            "000010",
+            "000000"
         ],
         "down": [
-            "00000010",
-            "00000010",
-            "00000010",
-            "00000010",
-            "00001111",
-            "00000111",
-            "00000010",
-            "00000000"
+            "000010",
+            "000010",
+            "000010",
+            "000010",
+            "001111",
+            "000111",
+            "000010",
+            "000000"
         ],
         "right": [
-            "00000001",
-            "00000011",
-            "00000111",
-            "00001111",
-            "00000111",
-            "00000011",
-            "00000001",
-            "00000000"
+            "000001",
+            "000011",
+            "000111",
+            "001111",
+            "000111",
+            "000011",
+            "000001",
+            "000000"
         ],
         "left": [
-            "10000000",
-            "11000000",
-            "11100000",
-            "11110000",
-            "11100000",
-            "11000000",
-            "10000000",
-            "00000000"
+            "100000",
+            "110000",
+            "111000",
+            "111100",
+            "111000",
+            "110000",
+            "100000",
+            "000000"
         ],
         "dot": [
-            "00000000",
-            "00000000",
-            "00000000",
-            "00000110",
-            "00000110",
-            "00000000",
-            "00000000",
-            "00000000"
+            "000000",
+            "000000",
+            "000000",
+            "001100",
+            "001100",
+            "000000",
+            "000000",
+            "000000"
         ]
     }
 
@@ -775,12 +775,12 @@ def run_matrix():
         return "dot"
 
     def draw_direction_arrow(direction, color):
-        # Draw an 8x8 arrow at columns 24-31 (fills to the right edge)
+        # Draw a 6x8 arrow at columns 26-31 (fills to the right edge)
         arrow_key = get_direction_arrow(direction)
         arrow = ARROWS[arrow_key]
-        x_offset = 24
+        x_offset = 26
         for y in range(8):
-            for x in range(8):
+            for x in range(6):
                 if arrow[y][x] == '1':
                     idx = matrix_index(x + x_offset, y)
                     if idx < LED_COUNT:
@@ -858,16 +858,7 @@ def run_matrix():
                 route_id, minutes_away, direction = all_trains[page % total_trains]
                 draw_arrival(route_id, minutes_away, direction)
             page = (page + 1) % max(1, total_trains)
-            # Prompt for station change after each page
-            print("\nType 'station' to change station, or press Enter to continue, Ctrl+C to quit.")
-            user_input = input().strip()
-            if user_input.lower() == "station":
-                new_station = select_station()
-                if new_station is None:
-                    clear()
-                    return
-                selected_station = new_station
-                page = 0
+            time.sleep(5)
         except KeyboardInterrupt:
             clear()
             break
