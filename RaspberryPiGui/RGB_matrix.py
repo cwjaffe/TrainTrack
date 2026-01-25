@@ -654,15 +654,23 @@ def run_matrix():
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
 
+    # --- Add this helper for zig-zag layout ---
+    def matrix_index(x, y):
+        # For serpentine layout: even rows left-to-right, odd rows right-to-left
+        if y % 2 == 0:
+            return y * MATRIX_WIDTH + x
+        else:
+            return y * MATRIX_WIDTH + (MATRIX_WIDTH - 1 - x)
+
     def clear():
-        for i in range(LED_COUNT):
-            strip.setPixelColor(i, Color(0,0,0))
+        for y in range(MATRIX_HEIGHT):
+            for x in range(MATRIX_WIDTH):
+                idx = matrix_index(x, y)
+                strip.setPixelColor(idx, Color(0,0,0))
         strip.show()
 
     def draw_7seg_digit(digit, color):
-        # Draw digit in left half (columns 0-15, rows 0-7)
         pattern = SEGMENTS.get(digit, SEGMENTS[0])
-        # Center the digit in columns 3-10 (for 8x8 digit)
         x_offset = 3
         y_offset = 0
         for seg, on in enumerate(pattern):
@@ -672,21 +680,19 @@ def run_matrix():
                 x = x_offset + px
                 y = y_offset + py
                 if 0 <= x < 11 and 0 <= y < 8:
-                    idx = y * MATRIX_WIDTH + x
+                    idx = matrix_index(x, y)
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
     def draw_letter(char, color):
-        # Draw letter in right half (columns 16-31, rows 0-7)
         font = FONT_8x8.get(char.upper())
         if not font:
             return
-        # Center the letter in columns 20-27
         x_offset = 20
         for y in range(8):
             for x in range(8):
                 if font[y][x] == '1':
-                    idx = y * MATRIX_WIDTH + (x + x_offset)
+                    idx = matrix_index(x + x_offset, y)
                     if idx < LED_COUNT:
                         strip.setPixelColor(idx, color)
 
