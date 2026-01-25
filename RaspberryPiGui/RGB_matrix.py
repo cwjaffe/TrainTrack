@@ -654,10 +654,9 @@ def run_matrix():
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
 
-    # --- Corrected for vertical zigzag, column-major, starting top-right ---
+    # --- Fix mirroring: x=0 is rightmost, x=31 is leftmost ---
     def matrix_index(x, y):
-        # x=31 is rightmost, x=0 is leftmost
-        col = MATRIX_WIDTH - 1 - x  # reverse x so 31 is first column
+        col = x  # x=0 is rightmost, x=31 is leftmost
         if col % 2 == 0:
             # Even column: top to bottom
             return col * MATRIX_HEIGHT + y
