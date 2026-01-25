@@ -326,7 +326,7 @@ LED_COUNT = MATRIX_WIDTH * MATRIX_HEIGHT
 LED_PIN = 18  # GPIO pin
 LED_FREQ_HZ = 800000
 LED_DMA = 10
-LED_BRIGHTNESS = 32
+LED_BRIGHTNESS = 16
 LED_INVERT = False
 LED_CHANNEL = 0
 
@@ -627,10 +627,32 @@ def run_matrix():
     all_stations = get_all_stations()
     sorted_stations = sorted(all_stations.items(), key=lambda kv: kv[1].lower())
 
+    # --- Station selection prompt ---
+    print("\nAvailable stations:")
+    for idx, (stop_id, display) in enumerate(sorted_stations[:20], 1):
+        print(f"{idx:2d}. {display}")
+    print("...")
+
+    selected_station = None
+    while selected_station is None:
+        user_input = input("\nEnter station name, stop ID, or number from above: ").strip()
+        if user_input.isdigit():
+            idx = int(user_input) - 1
+            if 0 <= idx < len(sorted_stations):
+                selected_station = sorted_stations[idx][0]
+                break
+            else:
+                print("Invalid number.")
+        else:
+            matches = [sid for sid, disp in sorted_stations if user_input.lower() in disp.lower() or user_input.lower() == sid.lower()]
+            if matches:
+                selected_station = matches[0]
+                break
+            else:
+                print("No match found. Try again.")
+
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
-
-    selected_station = sorted_stations[0][0]  # Default to first station
 
     def clear():
         for i in range(LED_COUNT):
