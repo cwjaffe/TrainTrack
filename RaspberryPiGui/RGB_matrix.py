@@ -858,7 +858,7 @@ def run_matrix():
                 route_id, minutes_away, direction = all_trains[page % total_trains]
                 draw_arrival(route_id, minutes_away, direction)
             page = (page + 1) % max(1, total_trains)
-            time.sleep(5)
+            time.sleep(2.5)
         except KeyboardInterrupt:
             clear()
             break
