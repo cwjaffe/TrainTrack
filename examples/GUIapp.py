@@ -378,7 +378,7 @@ def run_gui():
             if not q:
                 for stop_id, display in sorted_stations:
                     results_lb.insert("end", display)
-                    return
+                return
             for stop_id, display in sorted_stations:
                 if q in display.lower():
                     results_lb.insert("end", display)
@@ -457,9 +457,9 @@ def run_gui():
                         continue
                     seen.add(key)
                     messages.append(f"Line {alert.route_id}: {alert.message}")
-                    alerts_var.set("  ⚠  " + "    •    ".join(messages))
-                else:
-                    alerts_var.set("  ✓ No service alerts")
+                alerts_var.set("  ⚠  " + "    •    ".join(messages))
+            else:
+                alerts_var.set("  ✓ No service alerts")
 
             arrivals_frame.update_idletasks()
             arrivals_canvas.config(scrollregion=arrivals_canvas.bbox("all"))

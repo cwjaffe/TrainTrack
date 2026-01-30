@@ -297,7 +297,7 @@ def interactive_mode():
     print("Type 'list' to see known stations, or 'quit' to exit.")
     print("\n⚠️  DEMO MODE: Using sample data. For real data, install protobuf:\n")
     print("  pip install protobuf")
-    print("  python app_realtime.py\n")
+    print("  python app.py\n")
 
     while True:
         try:
@@ -310,8 +310,21 @@ def interactive_mode():
             if user_input.lower() == "list":
                 print("\nKnown Stations:")
                 print("-" * 70)
-                for name in sorted(set(s.split(" (")[0] for s in KNOWN_STATIONS.values())):
-                    print(f"  {name}")
+                # Group by base name for cleaner display
+                by_name = {}
+                for stop_id, display in KNOWN_STATIONS.items():
+                    base_name = display.split(" (")[0]
+                    if base_name not in by_name:
+                        by_name[base_name] = []
+                    by_name[base_name].append(display)
+                
+                for name in sorted(by_name.keys()):
+                    if len(by_name[name]) > 1:
+                        print(f"  {name}")
+                        for display in sorted(by_name[name]):
+                            print(f"    • {display}")
+                    else:
+                        print(f"  {by_name[name][0]}")
                 print()
                 continue
 
