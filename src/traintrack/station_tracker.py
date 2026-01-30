@@ -269,3 +269,20 @@ class MTAStationTracker:
 
         # Default fallback
         return f"Direction {direction_id}"
+
+    def cleanup(self) -> None:
+        """Release resources and clear caches."""
+        if self.mta_client:
+            self.mta_client.clear_cache()
+        if self.gtfs_loader:
+            # Don't clear GTFS data by default as it's expensive to reload
+            # but provide the option
+            pass
+        logger.info("Cleaned up tracker resources")
+
+    def __del__(self):
+        """Cleanup on garbage collection."""
+        try:
+            self.cleanup()
+        except:
+            pass  # Avoid errors during interpreter shutdown

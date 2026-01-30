@@ -24,6 +24,8 @@ class GTFSLoader:
         self.stations_by_name: Dict[str, List[str]] = {}  # name -> [stop_ids]
         self.routes: Dict[str, str] = {}  # route_id -> route_name
         self.stops_by_route: Dict[str, Set[str]] = {}  # route_id -> {stop_ids}
+        self.parent_to_children: Dict[str, List[str]] = {}
+        self.stop_to_parent: Dict[str, str] = {}
 
     def load_from_url(self) -> None:
         """Download and load GTFS data from MTA S3."""
@@ -208,3 +210,13 @@ class GTFSLoader:
             return children
 
         return [parent_id]
+
+    def clear(self) -> None:
+        """Clear all loaded data to free memory."""
+        self.stations.clear()
+        self.stations_by_name.clear()
+        self.routes.clear()
+        self.stops_by_route.clear()
+        self.parent_to_children.clear()
+        self.stop_to_parent.clear()
+        logger.info("Cleared GTFS data from memory")

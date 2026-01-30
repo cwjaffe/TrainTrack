@@ -37,13 +37,21 @@ logger = logging.getLogger(__name__)
 # Global tracker instance - initialized on first use
 _TRACKER = None
 _LOADER = None
+_SSL_CONTEXT = None  # Reuse SSL context
 
 def initialize_tracker():
     """Initialize the MTA Station Tracker (cached after first call)."""
-    global _TRACKER, _LOADER
+    global _TRACKER, _LOADER, _SSL_CONTEXT
     
     if _TRACKER is not None:
         return _TRACKER
+    
+    # Create reusable SSL context
+    if _SSL_CONTEXT is None:
+        try:
+            _SSL_CONTEXT = ssl._create_unverified_context()
+        except:
+            pass
     
     logger.info("Loading MTA station data...")
     _TRACKER = MTAStationTracker(load_gtfs=True)
@@ -840,28 +848,102 @@ def run_matrix():
         draw_direction_arrow(direction, Color(0,255,255))
         strip.show()
 
+    def draw_two_arrivals(route_id, first_minutes, second_minutes, direction):
+        """Draw route letter, two arrival times, and direction arrow."""
+        clear()
+        line_color = get_line_color_ws281x(route_id)
+        
+        # Draw route letter on left (columns 0-7)
+        draw_letter_left(route_id[0], line_color)
+        
+        # Draw first arrival time (columns 8-14)
+        digit1 = first_minutes if 0 <= first_minutes <= 9 else 9
+        pattern1 = SEGMENTS.get(digit1, SEGMENTS[0])
+        x_offset1 = 8
+        y_offset = 0
+        for seg, on in enumerate(pattern1):
+            if not on:
+                continue
+            for px, py in SEG_POS[seg]:
+                x = x_offset1 + px
+                y = y_offset + py
+                if 0 <= x < 15 and 0 <= y < 8:
+                    idx = matrix_index(x, y)
+                    if idx < LED_COUNT:
+                        strip.setPixelColor(idx, Color(255,255,255))
+        
+        # Draw second arrival time (columns 16-22)
+        if second_minutes is not None:
+            digit2 = second_minutes if 0 <= second_minutes <= 9 else 9
+            pattern2 = SEGMENTS.get(digit2, SEGMENTS[0])
+            x_offset2 = 16
+            for seg, on in enumerate(pattern2):
+                if not on:
+                    continue
+                for px, py in SEG_POS[seg]:
+                    x = x_offset2 + px
+                    y = y_offset + py
+                    if 0 <= x < 24 and 0 <= y < 8:
+                        idx = matrix_index(x, y)
+                        if idx < LED_COUNT:
+                            strip.setPixelColor(idx, Color(100,100,100))  # Dimmer for second train
+        
+        # Draw direction arrow (columns 26-31)
+        draw_direction_arrow(direction, Color(0,255,255))
+        strip.show()
+
     page = 0
-    while True:
-        try:
-            station = tracker.get_station(selected_station)
-            arrivals = tracker.get_arrivals(station)
-            # Flatten all arrivals into a list
-            all_trains = []
-            for direction in sorted(arrivals.keys()):
-                trains = arrivals[direction]
-                for route_id, minutes_away, destination in trains:
-                    all_trains.append((route_id, minutes_away, direction))
-            total_trains = len(all_trains)
-            if total_trains == 0:
+    
+    try:
+        while True:
+            try:
+                station = tracker.get_station(selected_station)
+                arrivals = tracker.get_arrivals(station)
+                
+                # Group by route across all directions
+                trains_by_route = {}
+                for direction in sorted(arrivals.keys()):
+                    trains = arrivals[direction]
+                    for route_id, minutes_away, destination in trains:
+                        if route_id not in trains_by_route:
+                            trains_by_route[route_id] = []
+                        trains_by_route[route_id].append((minutes_away, direction))
+                
+                # Sort each route's trains by time
+                for route_id in trains_by_route:
+                    trains_by_route[route_id].sort(key=lambda x: x[0])
+                
+                # Create list of routes to cycle through
+                all_routes = sorted(trains_by_route.keys())
+                total_routes = len(all_routes)
+                
+                if total_routes == 0:
+                    clear()
+                else:
+                    current_route = all_routes[page % total_routes]
+                    route_trains = trains_by_route[current_route]
+                    
+                    # Get first and second arrivals for this route
+                    first_minutes, first_direction = route_trains[0]
+                    second_minutes = route_trains[1][0] if len(route_trains) > 1 else None
+                    
+                    draw_two_arrivals(current_route, first_minutes, second_minutes, first_direction)
+                
+                page = (page + 1) % max(1, total_routes)
+                time.sleep(2.5)
+            except KeyboardInterrupt:
                 clear()
-            else:
-                route_id, minutes_away, direction = all_trains[page % total_trains]
-                draw_arrival(route_id, minutes_away, direction)
-            page = (page + 1) % max(1, total_trains)
-            time.sleep(2.5)
-        except KeyboardInterrupt:
+                break
+            except Exception as e:
+                logger.error(f"Error: {e}")
+                time.sleep(2.5)
+    finally:
+        # Cleanup
+        if PixelStrip is not None:
             clear()
-            break
+        # Clear large cached objects if needed
+        if _TRACKER is not None:
+            _TRACKER.mta_client._cache.clear()
 
 if __name__ == "__main__":
     main()

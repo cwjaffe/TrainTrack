@@ -31,6 +31,8 @@ class MTAClient:
         """Initialize the MTA client."""
         self._cache: Dict[str, Tuple[list, float]] = {}  # feed_url -> (data, timestamp)
         self._cache_ttl = 30  # Cache for 30 seconds
+        self._max_cache_size = 10  # Limit cache entries
+        self._ssl_context = ssl._create_unverified_context()  # Reuse SSL context
 
     def get_arrivals_for_stop(
         self,
@@ -106,18 +108,40 @@ class MTAClient:
                 logger.debug(f"Using cached data for {feed_url}")
                 return data
 
+        # Evict expired entries to prevent unbounded growth
+        self._evict_expired_cache(now)
+        
+        # Enforce max cache size
+        if len(self._cache) >= self._max_cache_size:
+            # Remove oldest entry
+            oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k][1])
+            del self._cache[oldest_key]
+
         logger.debug(f"Fetching {feed_url}")
         try:
-            # Create SSL context that doesn't verify certificates (for development)
-            ssl_context = ssl._create_unverified_context()
-            
-            with urlopen(feed_url, timeout=10, context=ssl_context) as response:
+            with urlopen(feed_url, timeout=10, context=self._ssl_context) as response:
                 data = response.read()
                 self._cache[feed_url] = (data, now)
                 return data
         except Exception as e:
             logger.error(f"Failed to fetch {feed_url}: {e}")
             raise
+    
+    def _evict_expired_cache(self, current_time: float) -> None:
+        """Remove expired cache entries."""
+        expired_keys = [
+            url for url, (_, timestamp) in self._cache.items()
+            if current_time - timestamp >= self._cache_ttl
+        ]
+        for key in expired_keys:
+            del self._cache[key]
+        
+        if expired_keys:
+            logger.debug(f"Evicted {len(expired_keys)} expired cache entries")
+    
+    def clear_cache(self) -> None:
+        """Manually clear the cache."""
+        self._cache.clear()
 
     def _parse_arrivals(self, feed_data: bytes, stop_ids: set) -> List[Train]:
         """
