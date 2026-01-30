@@ -36,14 +36,27 @@ class GTFSLoader:
             # Create SSL context that doesn't verify certificates (for development)
             ssl_context = ssl._create_unverified_context()
             
-            with urlopen(MTA_GTFS_URL, context=ssl_context) as response:
-                with zipfile.ZipFile(io.BytesIO(response.read())) as zip_file:
+            with urlopen(MTA_GTFS_URL, context=ssl_context, timeout=30) as response:
+                zip_data = response.read()
+                logger.info(f"Downloaded {len(zip_data)} bytes")
+                
+                with zipfile.ZipFile(io.BytesIO(zip_data)) as zip_file:
+                    # Verify zip file integrity
+                    if zip_file.testzip() is not None:
+                        raise ValueError("Corrupt ZIP file downloaded")
+                    
+                    logger.info("Parsing stops.txt...")
                     self._load_stops(zip_file.read("stops.txt").decode("utf-8"))
+                    
+                    logger.info("Parsing routes.txt...")
                     self._load_routes(zip_file.read("routes.txt").decode("utf-8"))
+                    
+                    logger.info("Parsing stop_times.txt...")
                     self._load_stop_times(zip_file.read("stop_times.txt").decode("utf-8"))
+                    
             logger.info(f"Loaded {len(self.stations)} stations and {len(self.routes)} routes")
         except Exception as e:
-            logger.error(f"Failed to load GTFS data: {e}")
+            logger.error(f"Failed to load GTFS data: {e}", exc_info=True)
             raise
 
     def load_from_files(self, stops_path: str, routes_path: str, stop_times_path: str) -> None:
@@ -59,54 +72,72 @@ class GTFSLoader:
 
     def _load_stops(self, csv_content: str) -> None:
         """Parse stops.txt and create Station objects."""
-        reader = csv.DictReader(io.StringIO(csv_content))
-        
-        # First pass: collect all stops and their parent relationships
-        stops_data = []
-        parent_to_children = {}  # parent_id -> [child_ids]
-        
-        for row in reader:
-            stop_id = row["stop_id"]
-            stop_name = row["stop_name"]
-            latitude = float(row["stop_lat"])
-            longitude = float(row["stop_lon"])
-            parent_station = row.get("parent_station", "")
-            location_type = row.get("location_type", "")
+        try:
+            reader = csv.DictReader(io.StringIO(csv_content))
             
-            stops_data.append((stop_id, stop_name, latitude, longitude, parent_station, location_type))
+            # First pass: collect all stops and their parent relationships
+            stops_data = []
+            parent_to_children = {}  # parent_id -> [child_ids]
             
-            # Track parent-child relationships
-            if parent_station:
-                if parent_station not in parent_to_children:
-                    parent_to_children[parent_station] = []
-                parent_to_children[parent_station].append(stop_id)
-        
-        # Second pass: create Station objects and store parent relationships
-        self.parent_to_children = parent_to_children
-        self.stop_to_parent = {}  # stop_id -> parent_id
-        
-        for stop_id, stop_name, latitude, longitude, parent_station, location_type in stops_data:
-            # Create station with empty lines list (filled by _load_stop_times)
-            station = Station(
-                stop_id=stop_id,
-                name=stop_name,
-                latitude=latitude,
-                longitude=longitude,
-                lines=[],
-            )
-            self.stations[stop_id] = station
+            for row in reader:
+                stop_id = row.get("stop_id", "").strip()
+                stop_name = row.get("stop_name", "").strip()
+                
+                # Skip if essential fields are missing
+                if not stop_id or not stop_name:
+                    continue
+                
+                try:
+                    latitude = float(row.get("stop_lat", 0))
+                    longitude = float(row.get("stop_lon", 0))
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid coordinates for stop {stop_id}")
+                    latitude = 0.0
+                    longitude = 0.0
+                
+                parent_station = row.get("parent_station", "").strip()
+                location_type = row.get("location_type", "").strip()
+                
+                stops_data.append((stop_id, stop_name, latitude, longitude, parent_station, location_type))
+                
+                # Track parent-child relationships
+                if parent_station:
+                    if parent_station not in parent_to_children:
+                        parent_to_children[parent_station] = []
+                    parent_to_children[parent_station].append(stop_id)
             
-            # Track parent relationship
-            if parent_station:
-                self.stop_to_parent[stop_id] = parent_station
-            # If this is a parent station (location_type=1), it's its own parent
-            elif location_type == "1":
-                self.stop_to_parent[stop_id] = stop_id
+            # Second pass: create Station objects and store parent relationships
+            self.parent_to_children = parent_to_children
+            self.stop_to_parent = {}  # stop_id -> parent_id
+            
+            for stop_id, stop_name, latitude, longitude, parent_station, location_type in stops_data:
+                # Create station with empty lines list (filled by _load_stop_times)
+                station = Station(
+                    stop_id=stop_id,
+                    name=stop_name,
+                    latitude=latitude,
+                    longitude=longitude,
+                    lines=[],
+                )
+                self.stations[stop_id] = station
+                
+                # Track parent relationship
+                if parent_station:
+                    self.stop_to_parent[stop_id] = parent_station
+                # If this is a parent station (location_type=1), it's its own parent
+                elif location_type == "1":
+                    self.stop_to_parent[stop_id] = stop_id
 
-            # Index by name for lookup
-            if stop_name not in self.stations_by_name:
-                self.stations_by_name[stop_name] = []
-            self.stations_by_name[stop_name].append(stop_id)
+                # Index by name for lookup
+                if stop_name not in self.stations_by_name:
+                    self.stations_by_name[stop_name] = []
+                self.stations_by_name[stop_name].append(stop_id)
+            
+            logger.debug(f"Loaded {len(self.stations)} stops")
+            
+        except Exception as e:
+            logger.error(f"Error in _load_stops: {e}", exc_info=True)
+            raise
 
     def _load_routes(self, csv_content: str) -> None:
         """Parse routes.txt."""
@@ -123,57 +154,73 @@ class GTFSLoader:
         # Trip IDs have format: PREFIX_TIMESTAMP_ROUTE..DIRECTION
         # Example: "AFA25GEN-1038-Sunday-00_020600_1..S03R"
         
-        reader = csv.DictReader(io.StringIO(csv_content))
-        
-        for row in reader:
-            stop_id = row["stop_id"]
-            trip_id = row["trip_id"]
+        try:
+            reader = csv.DictReader(io.StringIO(csv_content))
             
-            if not trip_id:
-                continue
+            # Track routes per stop to avoid repeated lookups
+            stop_routes = {}  # stop_id -> set of route_ids
             
-            # Extract route_id from trip_id
-            # Format: PREFIX_TIMESTAMP_ROUTE..DIRECTION
-            route_id = None
+            row_count = 0
+            for row in reader:
+                row_count += 1
+                if row_count % 10000 == 0:
+                    logger.debug(f"Processed {row_count} stop_times rows")
+                
+                stop_id = row.get("stop_id", "").strip()
+                trip_id = row.get("trip_id", "").strip()
+                
+                if not trip_id or not stop_id:
+                    continue
+                
+                # Extract route_id from trip_id
+                route_id = None
+                
+                # Split on ".." to get the ROUTE..DIRECTION part
+                if ".." in trip_id:
+                    # Get everything before ".."
+                    before_dots = trip_id.split("..")[0]
+                    # Get the last segment (the route)
+                    segments = before_dots.split("_")
+                    if segments:
+                        route_id = segments[-1]  # Last segment should be route
+                
+                # Verify route_id is valid
+                if route_id and route_id in self.routes:
+                    # Add to stops_by_route
+                    if route_id not in self.stops_by_route:
+                        self.stops_by_route[route_id] = set()
+                    self.stops_by_route[route_id].add(stop_id)
+                    
+                    # Track for later station updates
+                    if stop_id not in stop_routes:
+                        stop_routes[stop_id] = set()
+                    stop_routes[stop_id].add(route_id)
             
-            # Split on ".." to get the ROUTE..DIRECTION part
-            if ".." in trip_id:
-                # Get everything before ".."
-                before_dots = trip_id.split("..")[0]
-                # Get the last segment (the route)
-                segments = before_dots.split("_")
-                if segments:
-                    route_id = segments[-1]  # Last segment should be route
+            logger.debug(f"Processed {row_count} total stop_times rows")
             
-            # Verify route_id is valid
-            if route_id and route_id in self.routes:
-                if route_id not in self.stops_by_route:
-                    self.stops_by_route[route_id] = set()
-                self.stops_by_route[route_id].add(stop_id)
-        
-        # Populate stations' lines from stops_by_route
-        # Note: stop_times typically references child platforms (F23N, F23S), not parent (F23)
-        # So we need to map child stops back to their parent for display
-        
-        for stop_id, station in self.stations.items():
-            for route_id, stop_ids in self.stops_by_route.items():
-                if stop_id in stop_ids:
-                    # This stop directly serves this route
-                    if route_id not in station.lines:
-                        station.lines.append(route_id)
-        
-        # Also populate parent stations from their children's routes
-        for child_id, parent_id in self.stop_to_parent.items():
-            if child_id != parent_id and parent_id in self.stations:
-                # This is a child platform; copy its routes to the parent
-                child_station = self.stations.get(child_id)
-                parent_station = self.stations[parent_id]
-                if child_station and child_station.lines:
-                    for route_id in child_station.lines:
-                        if route_id not in parent_station.lines:
-                            parent_station.lines.append(route_id)
-        
-        logger.debug(f"Populated routes for {len(self.stations)} stations")
+            # Populate stations' lines from collected route data
+            for stop_id, route_ids in stop_routes.items():
+                if stop_id in self.stations:
+                    station = self.stations[stop_id]
+                    for route_id in route_ids:
+                        if route_id not in station.lines:
+                            station.lines.append(route_id)
+            
+            # Populate parent stations from their children's routes
+            for child_id, parent_id in self.stop_to_parent.items():
+                if child_id != parent_id and parent_id in self.stations:
+                    child_station = self.stations.get(child_id)
+                    parent_station = self.stations[parent_id]
+                    if child_station and child_station.lines:
+                        for route_id in child_station.lines:
+                            if route_id not in parent_station.lines:
+                                parent_station.lines.append(route_id)
+            
+            logger.debug(f"Populated routes for {len(self.stations)} stations")
+            
+        except Exception as e:
+            logger.error(f"Error in _load_stop_times: {e}", exc_info=True)
+            raise
 
     def get_station(self, station_id: str) -> Station:
         """Get station by stop_id."""
