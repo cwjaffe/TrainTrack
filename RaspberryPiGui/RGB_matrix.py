@@ -900,36 +900,38 @@ def run_matrix():
                 station = tracker.get_station(selected_station)
                 arrivals = tracker.get_arrivals(station)
                 
-                # Group by route across all directions
-                trains_by_route = {}
+                # Group by route AND direction (not just route)
+                trains_by_route_direction = {}
                 for direction in sorted(arrivals.keys()):
                     trains = arrivals[direction]
                     for route_id, minutes_away, destination in trains:
-                        if route_id not in trains_by_route:
-                            trains_by_route[route_id] = []
-                        trains_by_route[route_id].append((minutes_away, direction))
+                        # Key is (route_id, direction) tuple
+                        key = (route_id, direction)
+                        if key not in trains_by_route_direction:
+                            trains_by_route_direction[key] = []
+                        trains_by_route_direction[key].append(minutes_away)
                 
-                # Sort each route's trains by time
-                for route_id in trains_by_route:
-                    trains_by_route[route_id].sort(key=lambda x: x[0])
+                # Sort each route+direction's trains by time
+                for key in trains_by_route_direction:
+                    trains_by_route_direction[key].sort()
                 
-                # Create list of routes to cycle through
-                all_routes = sorted(trains_by_route.keys())
-                total_routes = len(all_routes)
+                # Create list of (route, direction) combinations to cycle through
+                all_route_directions = sorted(trains_by_route_direction.keys())
+                total_pages = len(all_route_directions)
                 
-                if total_routes == 0:
+                if total_pages == 0:
                     clear()
                 else:
-                    current_route = all_routes[page % total_routes]
-                    route_trains = trains_by_route[current_route]
+                    current_route, current_direction = all_route_directions[page % total_pages]
+                    arrival_times = trains_by_route_direction[(current_route, current_direction)]
                     
-                    # Get first and second arrivals for this route
-                    first_minutes, first_direction = route_trains[0]
-                    second_minutes = route_trains[1][0] if len(route_trains) > 1 else None
+                    # Get first and second arrivals for this route+direction
+                    first_minutes = arrival_times[0]
+                    second_minutes = arrival_times[1] if len(arrival_times) > 1 else None
                     
-                    draw_two_arrivals(current_route, first_minutes, second_minutes, first_direction)
+                    draw_two_arrivals(current_route, first_minutes, second_minutes, current_direction)
                 
-                page = (page + 1) % max(1, total_routes)
+                page = (page + 1) % max(1, total_pages)
                 time.sleep(2.5)
             except KeyboardInterrupt:
                 clear()
