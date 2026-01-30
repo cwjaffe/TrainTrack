@@ -146,21 +146,11 @@ class MTAStationTracker:
             if direction_label not in result:
                 result[direction_label] = []
 
-            result[direction_label].append((train.route_id, train.minutes_away, train.destination, train.trip_id))
+            result[direction_label].append((train.route_id, train.minutes_away, train.destination))
 
-        # For each direction, keep only the closest train per route (by trip)
+        # Sort each direction by route_id, then by minutes_away
         for direction in result:
-            # Deduplicate by route - keep closest train per route
-            by_route: Dict[str, tuple] = {}
-            for route_id, minutes_away, destination, trip_id in result[direction]:
-                if route_id not in by_route:
-                    by_route[route_id] = (route_id, minutes_away, destination)
-                else:
-                    # Keep the one with fewer minutes (closest)
-                    if minutes_away < by_route[route_id][1]:
-                        by_route[route_id] = (route_id, minutes_away, destination)
-
-            result[direction] = sorted(by_route.values(), key=lambda x: x[0])
+            result[direction].sort(key=lambda x: (x[0], x[1]))
 
         return result
 
