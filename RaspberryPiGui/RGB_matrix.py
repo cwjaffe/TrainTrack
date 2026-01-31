@@ -34,6 +34,28 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Persist last station selection
+LAST_STATION_PATH = os.path.join(os.path.dirname(__file__), ".last_station")
+
+def load_last_station() -> str:
+    """Load last station stop_id from disk (if any)."""
+    try:
+        with open(LAST_STATION_PATH, "r", encoding="utf-8") as f:
+            value = f.read().strip()
+            return value or None
+    except FileNotFoundError:
+        return None
+    except Exception:
+        return None
+
+def save_last_station(stop_id: str) -> None:
+    """Persist last station stop_id to disk."""
+    try:
+        with open(LAST_STATION_PATH, "w", encoding="utf-8") as f:
+            f.write(stop_id.strip())
+    except Exception:
+        pass
+
 # Global tracker instance - initialized on first use
 _TRACKER = None
 _LOADER = None
@@ -645,10 +667,29 @@ def run_matrix():
             print(f"{idx:3d}. {display}")
         print("Type a number, station name, or stop ID to select a station.")
         print("Type 'quit' to exit.")
+
+        last_station = load_last_station()
+        if last_station:
+            last_name = all_stations.get(last_station, last_station)
+            print(f"Press Enter or type 'last' to use last station: {last_name}")
+            print("Type 'clear' to forget the last station.")
+
         while True:
             user_input = input("\nSelect station: ").strip()
+
             if user_input.lower() == "quit":
                 return None
+            if user_input.lower() == "clear":
+                try:
+                    os.remove(LAST_STATION_PATH)
+                    print("Last station cleared.")
+                except Exception:
+                    pass
+                continue
+
+            if (user_input == "" or user_input.lower() == "last") and last_station:
+                return last_station
+
             if user_input.isdigit():
                 idx = int(user_input) - 1
                 if 0 <= idx < len(sorted_stations):
@@ -665,6 +706,8 @@ def run_matrix():
     selected_station = select_station()
     if selected_station is None:
         return
+
+    save_last_station(selected_station)
 
     # --- Fix mirroring: x=0 is rightmost, x=31 is leftmost ---
     def matrix_index(x, y):
