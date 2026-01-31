@@ -665,64 +665,80 @@ def run_matrix(station_arg=None):
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
 
-    # If station arg provided, use it; otherwise prompt
+    # If station arg provided, use it
     if station_arg:
         selected_station = station_arg
         save_last_station(selected_station)
     else:
-        def select_station():
-            print("\nAvailable stations:")
-            for idx, (stop_id, display) in enumerate(sorted_stations, 1):
-                print(f"{idx:3d}. {display}")
-            print("Type a number, station name, or stop ID to select a station.")
-            print("Type 'quit' to exit.")
-
+        # If no TTY (systemd), auto-resume last station or optional default
+        if not sys.stdin.isatty():
             last_station = load_last_station()
             if last_station:
-                last_name = all_stations.get(last_station, last_station)
-                print(f"Press Enter or type 'last' to use last station: {last_name}")
-                print("Type 'clear' to forget the last station.")
+                selected_station = last_station
+                save_last_station(selected_station)
             else:
-                print("(No saved station)")
-
-            while True:
-                user_input = input("\nSelect station: ").strip()
-
-                if user_input.lower() == "quit":
-                    return None
-                if user_input.lower() == "clear":
-                    try:
-                        os.remove(LAST_STATION_PATH)
-                        print("Last station cleared.")
-                        last_station = None
-                    except Exception:
-                        pass
-                    continue
-
-                # Auto-resume on empty input if last_station exists
-                if user_input == "" and last_station:
-                    return last_station
-                if user_input.lower() == "last" and last_station:
-                    return last_station
-
-                if user_input.isdigit():
-                    idx = int(user_input) - 1
-                    if 0 <= idx < len(sorted_stations):
-                        return sorted_stations[idx][0]
-                    else:
-                        print("Invalid number.")
+                default_station = os.getenv("TRAINTRACK_DEFAULT_STATION")
+                if default_station:
+                    selected_station = default_station
+                    save_last_station(selected_station)
                 else:
-                    matches = [sid for sid, disp in sorted_stations if user_input.lower() in disp.lower() or user_input.lower() == sid.lower()]
-                    if matches:
-                        return matches[0]
+                    logger.error("No TTY and no saved station. Run once interactively to save a station.")
+                    return
+        else:
+            def select_station():
+                print("\nAvailable stations:")
+                for idx, (stop_id, display) in enumerate(sorted_stations, 1):
+                    print(f"{idx:3d}. {display}")
+                print("Type a number, station name, or stop ID to select a station.")
+                print("Type 'quit' to exit.")
+
+                last_station = load_last_station()
+                if last_station:
+                    last_name = all_stations.get(last_station, last_station)
+                    print(f"Press Enter or type 'last' to use last station: {last_name}")
+                    print("Type 'clear' to forget the last station.")
+                else:
+                    print("(No saved station)")
+
+                while True:
+                    user_input = input("\nSelect station: ").strip()
+
+                    if user_input.lower() == "quit":
+                        return None
+                    if user_input.lower() == "clear":
+                        try:
+                            os.remove(LAST_STATION_PATH)
+                            print("Last station cleared.")
+                            last_station = None
+                        except Exception:
+                            pass
+                        continue
+
+                    # Auto-resume on empty input if last_station exists
+                    if user_input == "" and last_station:
+                        return last_station
+                    if user_input.lower() == "last" and last_station:
+                        return last_station
+
+                    if user_input.isdigit():
+                        idx = int(user_input) - 1
+                        if 0 <= idx < len(sorted_stations):
+                            return sorted_stations[idx][0]
+                        else:
+                            print("Invalid number.")
                     else:
-                        print("No match found. Try again.")
+                        matches = [sid for sid, disp in sorted_stations if user_input.lower() in disp.lower() or user_input.lower() == sid.lower()]
+                        if matches:
+                            return matches[0]
+                        else:
+                            print("No match found. Try again.")
 
-        selected_station = select_station()
-        if selected_station is None:
-            return
+                return None
 
-        save_last_station(selected_station)
+            selected_station = select_station()
+            if selected_station is None:
+                return
+            save_last_station(selected_station)
 
     # --- Fix mirroring: x=0 is rightmost, x=31 is leftmost ---
     def matrix_index(x, y):
