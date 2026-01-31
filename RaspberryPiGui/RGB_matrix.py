@@ -305,9 +305,12 @@ def interactive_mode():
 
 def main():
     """Main entry point."""
+    station_arg = None
     if len(sys.argv) > 1:
         if sys.argv[1] == "--matrix":
-            run_matrix()
+            if len(sys.argv) > 3 and sys.argv[2] == "--station":
+                station_arg = sys.argv[3]
+            run_matrix(station_arg)
             return
         # Command line mode
         user_input = " ".join(sys.argv[1:])
@@ -649,12 +652,11 @@ SEG_POS = [
     [(1,3),(2,3),(3,3),(4,3),(5,3)]       # middle
 ]
 
-def run_matrix():
+def run_matrix(station_arg=None):
     if PixelStrip is None:
         print("rpi_ws281x not installed or not running on Pi.")
         return
 
-    # Load tracker ONCE at startup, outside the loop
     print("Loading MTA data... (this may take a minute)")
     tracker = initialize_tracker()
     all_stations = get_all_stations()
@@ -663,59 +665,64 @@ def run_matrix():
     strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
     strip.begin()
 
-    def select_station():
-        print("\nAvailable stations:")
-        for idx, (stop_id, display) in enumerate(sorted_stations, 1):
-            print(f"{idx:3d}. {display}")
-        print("Type a number, station name, or stop ID to select a station.")
-        print("Type 'quit' to exit.")
+    # If station arg provided, use it; otherwise prompt
+    if station_arg:
+        selected_station = station_arg
+        save_last_station(selected_station)
+    else:
+        def select_station():
+            print("\nAvailable stations:")
+            for idx, (stop_id, display) in enumerate(sorted_stations, 1):
+                print(f"{idx:3d}. {display}")
+            print("Type a number, station name, or stop ID to select a station.")
+            print("Type 'quit' to exit.")
 
-        last_station = load_last_station()
-        if last_station:
-            last_name = all_stations.get(last_station, last_station)
-            print(f"Press Enter or type 'last' to use last station: {last_name}")
-            print("Type 'clear' to forget the last station.")
-        else:
-            print("(No saved station)")
-
-        while True:
-            user_input = input("\nSelect station: ").strip()
-
-            if user_input.lower() == "quit":
-                return None
-            if user_input.lower() == "clear":
-                try:
-                    os.remove(LAST_STATION_PATH)
-                    print("Last station cleared.")
-                    last_station = None
-                except Exception:
-                    pass
-                continue
-
-            # Auto-resume on empty input if last_station exists
-            if user_input == "" and last_station:
-                return last_station
-            if user_input.lower() == "last" and last_station:
-                return last_station
-
-            if user_input.isdigit():
-                idx = int(user_input) - 1
-                if 0 <= idx < len(sorted_stations):
-                    return sorted_stations[idx][0]
-                else:
-                    print("Invalid number.")
+            last_station = load_last_station()
+            if last_station:
+                last_name = all_stations.get(last_station, last_station)
+                print(f"Press Enter or type 'last' to use last station: {last_name}")
+                print("Type 'clear' to forget the last station.")
             else:
-                matches = [sid for sid, disp in sorted_stations if user_input.lower() in disp.lower() or user_input.lower() == sid.lower()]
-                if matches:
-                    return matches[0]
+                print("(No saved station)")
+
+            while True:
+                user_input = input("\nSelect station: ").strip()
+
+                if user_input.lower() == "quit":
+                    return None
+                if user_input.lower() == "clear":
+                    try:
+                        os.remove(LAST_STATION_PATH)
+                        print("Last station cleared.")
+                        last_station = None
+                    except Exception:
+                        pass
+                    continue
+
+                # Auto-resume on empty input if last_station exists
+                if user_input == "" and last_station:
+                    return last_station
+                if user_input.lower() == "last" and last_station:
+                    return last_station
+
+                if user_input.isdigit():
+                    idx = int(user_input) - 1
+                    if 0 <= idx < len(sorted_stations):
+                        return sorted_stations[idx][0]
+                    else:
+                        print("Invalid number.")
                 else:
-                    print("No match found. Try again.")
+                    matches = [sid for sid, disp in sorted_stations if user_input.lower() in disp.lower() or user_input.lower() == sid.lower()]
+                    if matches:
+                        return matches[0]
+                    else:
+                        print("No match found. Try again.")
 
-    selected_station = select_station()
-    if selected_station is None:
-        return
+        selected_station = select_station()
+        if selected_station is None:
+            return
 
-    save_last_station(selected_station)
+        save_last_station(selected_station)
 
     # --- Fix mirroring: x=0 is rightmost, x=31 is leftmost ---
     def matrix_index(x, y):
