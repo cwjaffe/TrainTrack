@@ -654,6 +654,8 @@ def run_matrix():
         print("rpi_ws281x not installed or not running on Pi.")
         return
 
+    # Load tracker ONCE at startup, outside the loop
+    print("Loading MTA data... (this may take a minute)")
     tracker = initialize_tracker()
     all_stations = get_all_stations()
     sorted_stations = sorted(all_stations.items(), key=lambda kv: kv[1].lower())
@@ -673,6 +675,8 @@ def run_matrix():
             last_name = all_stations.get(last_station, last_station)
             print(f"Press Enter or type 'last' to use last station: {last_name}")
             print("Type 'clear' to forget the last station.")
+        else:
+            print("(No saved station)")
 
         while True:
             user_input = input("\nSelect station: ").strip()
@@ -683,11 +687,15 @@ def run_matrix():
                 try:
                     os.remove(LAST_STATION_PATH)
                     print("Last station cleared.")
+                    last_station = None
                 except Exception:
                     pass
                 continue
 
-            if (user_input == "" or user_input.lower() == "last") and last_station:
+            # Auto-resume on empty input if last_station exists
+            if user_input == "" and last_station:
+                return last_station
+            if user_input.lower() == "last" and last_station:
                 return last_station
 
             if user_input.isdigit():
@@ -940,6 +948,7 @@ def run_matrix():
     try:
         while True:
             try:
+                # tracker is already loaded; just query it
                 station = tracker.get_station(selected_station)
                 arrivals = tracker.get_arrivals(station)
                 
