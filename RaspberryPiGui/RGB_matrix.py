@@ -967,6 +967,8 @@ def run_matrix(station_arg=None):
         strip.show()
 
     page = 0
+    consecutive_errors = 0
+    max_consecutive_errors = 5
     
     try:
         while True:
@@ -975,22 +977,22 @@ def run_matrix(station_arg=None):
                 station = tracker.get_station(selected_station)
                 arrivals = tracker.get_arrivals(station)
                 
+                # Reset error counter on success
+                consecutive_errors = 0
+                
                 # Group by route AND direction (not just route)
                 trains_by_route_direction = {}
                 for direction in sorted(arrivals.keys()):
                     trains = arrivals[direction]
                     for route_id, minutes_away, destination in trains:
-                        # Key is (route_id, direction) tuple
                         key = (route_id, direction)
                         if key not in trains_by_route_direction:
                             trains_by_route_direction[key] = []
                         trains_by_route_direction[key].append(minutes_away)
                 
-                # Sort each route+direction's trains by time
                 for key in trains_by_route_direction:
                     trains_by_route_direction[key].sort()
                 
-                # Create list of (route, direction) combinations to cycle through
                 all_route_directions = sorted(trains_by_route_direction.keys())
                 total_pages = len(all_route_directions)
                 
@@ -999,28 +1001,46 @@ def run_matrix(station_arg=None):
                 else:
                     current_route, current_direction = all_route_directions[page % total_pages]
                     arrival_times = trains_by_route_direction[(current_route, current_direction)]
-                    
-                    # Get first and second arrivals for this route+direction
                     first_minutes = arrival_times[0]
                     second_minutes = arrival_times[1] if len(arrival_times) > 1 else None
-                    
                     draw_two_arrivals(current_route, first_minutes, second_minutes, current_direction)
                 
                 page = (page + 1) % max(1, total_pages)
                 time.sleep(2.5)
+                
+            except (ConnectionError, TimeoutError, KeyError, ValueError, AttributeError) as e:
+                # Network or data parsing error
+                consecutive_errors += 1
+                logger.warning(f"API error (attempt {consecutive_errors}/{max_consecutive_errors}): {e}")
+                
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.error(f"Too many consecutive errors. Restarting tracker...")
+                    global _TRACKER
+                    _TRACKER = None  # Force reload
+                    tracker = initialize_tracker()
+                    consecutive_errors = 0
+                
+                clear()
+                time.sleep(3)  # Wait before retry
+                
             except KeyboardInterrupt:
                 clear()
                 break
+                
             except Exception as e:
-                logger.error(f"Error: {e}")
-                time.sleep(2.5)
+                # Unknown error—log and continue
+                logger.error(f"Unexpected error: {e}", exc_info=True)
+                clear()
+                time.sleep(3)
+                
     finally:
-        # Cleanup
         if PixelStrip is not None:
             clear()
-        # Clear large cached objects if needed
         if _TRACKER is not None:
-            _TRACKER.mta_client._cache.clear()
+            try:
+                _TRACKER.mta_client._cache.clear()
+            except:
+                pass
 
 if __name__ == "__main__":
     main()
